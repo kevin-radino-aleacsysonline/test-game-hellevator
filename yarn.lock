@@ -971,13 +971,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/howler@npm:^2.2.7":
-  version: 2.2.12
-  resolution: "@types/howler@npm:2.2.12"
-  checksum: 0f8b88abd9b0607db50c4fbc91cc6646a9eee4a337f3e8b9c39696e78eff1eb0b3f5913bf32cccc7a96d2be2af8544376ce3afa5de4b1ba9873d0287abe97a5b
-  languageName: node
-  linkType: hard
-
 "@types/html-minifier-terser@npm:^6.0.0":
   version: 6.1.0
   resolution: "@types/html-minifier-terser@npm:6.1.0"
@@ -1210,7 +1203,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/webpack@npm:^4, @types/webpack@npm:^4.4.31":
+"@types/webpack@npm:^4":
   version: 4.41.40
   resolution: "@types/webpack@npm:4.41.40"
   dependencies:
@@ -2532,15 +2525,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"clean-webpack-plugin@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "clean-webpack-plugin@npm:3.0.0"
+"clean-webpack-plugin@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "clean-webpack-plugin@npm:4.0.0"
   dependencies:
-    "@types/webpack": ^4.4.31
     del: ^4.1.1
   peerDependencies:
-    webpack: "*"
-  checksum: ca933e80d34e079084ca2fd70f05bed1d0e93fcb5cd21a6ab8aeca521ab92749d28a28ea7600b9b92de9326ddc253147187dee8b1bea9d60b0be0b76600914d6
+    webpack: ">=4.0.0 <6.0.0"
+  checksum: 199425e87b8c4a24ea321ec8116408219930f2ef86e27dd4cdf0ed77ed7b8b3a6908ed5160e4e981c773e015ba1d79d3f53f2fdcfebc5dc0b68f1478dea08fff
   languageName: node
   linkType: hard
 
@@ -5010,13 +5002,6 @@ __metadata:
   version: 2.8.9
   resolution: "hosted-git-info@npm:2.8.9"
   checksum: c955394bdab888a1e9bb10eb33029e0f7ce5a2ac7b3f158099dc8c486c99e73809dca609f5694b223920ca2174db33d32b12f9a2a47141dc59607c29da5a62dd
-  languageName: node
-  linkType: hard
-
-"howler@npm:^2.2.3":
-  version: 2.2.4
-  resolution: "howler@npm:2.2.4"
-  checksum: 14ad7ed8825ac4439a63429d25f3ba6f44daca1d6df4ad6b04f33e342269b80db5608d9f1e6e980e2d47027c7ceba7811068eba7f56e8e75f2601086e07f0b73
   languageName: node
   linkType: hard
 
@@ -9215,7 +9200,6 @@ __metadata:
     "@pixi/compressed-textures": ^7.4.2
     "@pixi/core": ^7.4.2
     "@types/copy-webpack-plugin": ^8.0.0
-    "@types/howler": ^2.2.7
     "@types/ip": ^1.1.0
     "@types/lodash": ^4.14.202
     "@types/node": ^20.7.1
@@ -9227,7 +9211,7 @@ __metadata:
     "@types/webpack": ^5.28.0
     "@types/webpack-dev-server": ^3.11.4
     "@typescript-eslint/parser": ^8.13.0
-    clean-webpack-plugin: ^3.0.0
+    clean-webpack-plugin: ^4.0.0
     commander: ^10.0.1
     convert-js-to-ts: ^1.3.2
     copy-webpack-plugin: ^9.0.1
@@ -9240,7 +9224,6 @@ __metadata:
     figlet: ^1.6.0
     file-loader: ^6.2.0
     fs: ^0.0.1-security
-    howler: ^2.2.3
     html-webpack-plugin: ^5.4.0
     imagemin: ^8.0.0
     imagemin-pngquant: ^9.0.2

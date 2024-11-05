@@ -1,5 +1,4 @@
 import * as fflate from 'fflate';
-import { Howl } from 'howler';
 import * as Pixi from 'Pixi.js';
 
 type CompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
@@ -78,18 +77,5 @@ export class ZippedResource {
         const image = `data:image/png;base64,${byteStr}`;
 
         return Pixi.Texture.from(image);
-    }
-
-    public getAudio(path: string): Howl {
-        const pathArray = path.split('/');
-        const fullName = pathArray[pathArray.length - 1];
-        const audioResource = this.unzipResource(fullName);
-
-        const properties = fullName.split('.');
-
-        const blob = new Blob([audioResource!], { type: 'audio/mp3' });
-        const uri = window.URL.createObjectURL(blob);
-        const howlSound = new Howl({ src: uri, autoplay: false, loop: false, volume: 0.5, format: properties[1] });
-        return howlSound;
     }
 }
