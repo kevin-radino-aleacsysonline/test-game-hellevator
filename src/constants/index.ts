@@ -2,43 +2,42 @@ import { PhoneFormatTypes } from '../types/phoneFormatTypes';
 import { TextureFormatTypes } from '../types/textureFormatTypes';
 
 export const assetTexturePaths: Record<TextureFormatTypes, string[]> = {
+    [TextureFormatTypes.None]: [],
     [TextureFormatTypes.Default32]: [
-        './assets/texture/32/backgroundBackTile_1.png',
-        './assets/texture/32/backgroundBackTile_2.png',
-        './assets/texture/32/backgroundBackTile_3.png',
-        './assets/texture/32/character.png',
-        './assets/texture/32/level1.png',
-        './assets/texture/32/level2.png',
-        './assets/texture/32/level3.png',
-        './assets/texture/32/level4.png',
-        './assets/texture/32/level5.png',
-        './assets/texture/32/level6.png',
-        './assets/texture/32/level7.png',
-        './assets/texture/32/level8.png',
+        './assets/texture/32/backgroundBackTile_1.png', // 0
+        './assets/texture/32/backgroundBackTile_2.png', // 1
+        './assets/texture/32/backgroundBackTile_3.png', // 2
+        './assets/texture/32/level1.png', // 3
+        './assets/texture/32/level2.png', // 4
+        './assets/texture/32/level3.png', // 5
+        './assets/texture/32/level4.png', // 6
+        './assets/texture/32/level5.png', // 7
+        './assets/texture/32/level6.png', // 8
+        './assets/texture/32/level7.png', // 9
+        './assets/texture/32/level8.png', // 10
+        './assets/texture/32/sky1.png', // 11
+        './assets/texture/32/sky2.png', // 12
+        './assets/texture/32/sky3.png', // 13
+        './assets/texture/32/sky4.png', // 14
     ],
     [TextureFormatTypes.Scaled32To128]: [
-        './assets/texture/32s128/backgroundBackTile_1.png',
-        './assets/texture/32s128/backgroundBackTile_2.png',
-        './assets/texture/32s128/backgroundBackTile_3.png',
-        './assets/texture/32s128/character.png',
-        './assets/texture/32s128/level1.png',
-        './assets/texture/32s128/level2.png',
-        './assets/texture/32s128/level3.png',
-        './assets/texture/32s128/level4.png',
-        './assets/texture/32s128/level5.png',
-        './assets/texture/32s128/level6.png',
-        './assets/texture/32s128/level7.png',
-        './assets/texture/32s128/level8.png',
+        './assets/texture/32s128/backgroundBackTile_1.png', // 0
+        './assets/texture/32s128/backgroundBackTile_2.png', // 1
+        './assets/texture/32s128/backgroundBackTile_3.png', // 2
+        './assets/texture/32s128/level1.png', // 3
+        './assets/texture/32s128/level2.png', // 4
+        './assets/texture/32s128/level3.png', // 5
+        './assets/texture/32s128/level4.png', // 6
+        './assets/texture/32s128/level5.png', // 7
+        './assets/texture/32s128/level6.png', // 8
+        './assets/texture/32s128/level7.png', // 9
+        './assets/texture/32s128/level8.png', // 10
     ],
 };
 
-export const sizePerFormoat: Record<TextureFormatTypes, number> = {
-    [TextureFormatTypes.Default32]: 32,
-    [TextureFormatTypes.Scaled32To128]: 128,
-};
-
-export const rows = 32;
-export const cols = 16;
+export const ROWS = 32;
+export const COLS = 16;
+export const TILESIZE = 32;
 
 export const phoneFormatDimensions: Record<PhoneFormatTypes, { w: number; h: number }> = {
     [PhoneFormatTypes.IPhoneSE]: { w: 375, h: 667 },
@@ -49,3 +48,39 @@ export const phoneFormatDimensions: Record<PhoneFormatTypes, { w: number; h: num
     [PhoneFormatTypes.SamsungGalaxyS8Plus]: { w: 360, h: 740 },
     [PhoneFormatTypes.SamsungGalaxyS20Ultra]: { w: 412, h: 915 },
 };
+
+export const tileMapGuide: number[][] = [
+    [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14],
+    [13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13],
+    [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],
+    [11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11],
+
+    [3, 3, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [3, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+];
