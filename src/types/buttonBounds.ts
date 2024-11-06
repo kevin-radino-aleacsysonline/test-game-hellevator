@@ -5,4 +5,5 @@ export interface ButtonBounds {
     bottom: number;
     height: number;
     width: number;
+    center: number;
 }

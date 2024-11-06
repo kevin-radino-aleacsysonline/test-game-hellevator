@@ -78,13 +78,6 @@ const config: Webpack.Configuration = {
         }),
         new nodePolyfillPlugin(),
     ],
-    output: {
-        filename: Config.outFileName,
-        path: Config.outPath + '/',
-        libraryTarget: 'umd',
-        libraryExport: 'default',
-        library: Config.outputName,
-    },
     resolve: {
         mainFields: ['module', 'main'],
         extensions: ['.ts', '.tsx', '.js', '.vue', '.json', 'd.ts'],

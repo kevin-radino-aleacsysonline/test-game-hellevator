@@ -1,4 +1,5 @@
-import { Project, IProject } from './project';
+import { Project } from './project';
+import { IProject } from './types/projectType';
 
 type WindowExt = Window &
     typeof globalThis & {
@@ -10,9 +11,9 @@ interface ProjectExports {
 }
 
 export default ((): ProjectExports => {
-    const inClosure: IProject = new Project();
+    const game: IProject = new Project();
     const pageReturn: ProjectExports = {
-        launch: inClosure.launch.bind(inClosure),
+        launch: game.launch.bind(game),
     };
     if (typeof window !== undefined) {
         (window as WindowExt)['TestProject'] = pageReturn;

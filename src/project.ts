@@ -1,27 +1,30 @@
 import * as Pixi from 'Pixi.js';
 import _ from 'lodash';
-import { Button } from './models/button';
+import { UIElement } from './models/uiElement';
 import { assetTexturePaths, COLS, phoneFormatDimensions, ROWS, tileMapGuide, TILESIZE } from './constants';
 import { TextureFormatTypes } from './types/textureFormatTypes';
 import { PhoneFormatTypes } from './types/phoneFormatTypes';
 import { ViewTypes } from './types/viewTypes';
-
-export interface IProject {
-    launch(): void;
-}
+import { IProject } from './types/projectType';
 
 export class Project implements IProject {
     public canvasApp: Pixi.Application<HTMLCanvasElement>;
     private mainContainer: Pixi.Container;
     private phoneContainer: Pixi.Container;
+    private hudContainer: Pixi.Container;
     private scaleSettingContainer: Pixi.Container;
     private tildIdSettingContainer: Pixi.Container;
     private phoneMask?: Pixi.Graphics = undefined;
+    private phoneBackground?: Pixi.Graphics = undefined;
 
     private textures: Pixi.Texture<Pixi.Resource>[] = [];
     private tiles: Pixi.Sprite[] = [];
     private characters: Pixi.Sprite[] = [];
+
     private elevator?: Pixi.Sprite;
+    private elevatorCage?: Pixi.Sprite;
+    private elevatorStairs?: Pixi.Sprite;
+    private elevatorBg?: Pixi.Sprite;
 
     private currentPhoneFormat: PhoneFormatTypes = PhoneFormatTypes.IPhoneSE;
     private currentPhoneFormatIndex: number = 0;
@@ -37,13 +40,11 @@ export class Project implements IProject {
     private currentScale: number = -1;
     private currentTileId: number = -1;
 
-    private phoneFormatLabel: Button;
-    private textureFormatLabel: Button;
-    private scaleLabel: Button;
-    private tileIdLabel: Button;
-    private viewTypeButton: Button;
-
-    private phoneBackground?: Pixi.Graphics;
+    private phoneFormatLabel: UIElement;
+    private textureFormatLabel: UIElement;
+    private scaleLabel: UIElement;
+    private tileIdLabel: UIElement;
+    private viewTypeButton: UIElement;
 
     private isholdingShift: boolean = false;
     private isholdingControl: boolean = false;
@@ -87,15 +88,20 @@ export class Project implements IProject {
     };
 
     public async launch(): Promise<void> {
+        Pixi.Assets.addBundle('fonts', [{ alias: 'upheavtt', src: '../assets/fonts/upheavtt.ttf' }]);
+        await Pixi.Assets.loadBundle('fonts');
+
         this.center = { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 };
         this.canvasApp = new Pixi.Application<HTMLCanvasElement>({ background: '#1099bb', resizeTo: window });
         this.mainContainer = new Pixi.Container();
         this.phoneContainer = new Pixi.Container();
+        this.hudContainer = new Pixi.Container();
         this.scaleSettingContainer = new Pixi.Container();
         this.tildIdSettingContainer = new Pixi.Container();
         this.mainContainer.addChild(this.scaleSettingContainer);
         this.mainContainer.addChild(this.tildIdSettingContainer);
         this.mainContainer.addChild(this.phoneContainer);
+        this.mainContainer.addChild(this.hudContainer);
         this.canvasApp.stage.addChild(this.mainContainer);
         document.body.appendChild(this.canvasApp.view);
         this.createButtons();
@@ -104,6 +110,7 @@ export class Project implements IProject {
         this.onScaleChange(1);
         this.onTileChange(0);
         this.onViewTypeChange(ViewTypes.Playfield);
+        this.createHud();
         this.bindEvents();
     }
 
@@ -114,8 +121,8 @@ export class Project implements IProject {
         const beginY = height * 2;
 
         // Phone Format
-        this.phoneFormatLabel = new Button('Current Phone Format', height + margin, beginY, width, height, undefined);
-        const phoneFormatNextButton = new Button(
+        this.phoneFormatLabel = new UIElement('Current Phone Format', height + margin, beginY, width, height, undefined);
+        const phoneFormatNextButton = new UIElement(
             '>',
             this.phoneFormatLabel.bounds.right + margin,
             this.phoneFormatLabel.bounds.top,
@@ -126,7 +133,7 @@ export class Project implements IProject {
                 await this.createAssets(this.currentTextureFormat);
             }
         );
-        const phoneFormatPreviousButton = new Button(
+        const phoneFormatPreviousButton = new UIElement(
             '<',
             this.phoneFormatLabel.bounds.left - margin - height,
             this.phoneFormatLabel.bounds.top,
@@ -142,7 +149,7 @@ export class Project implements IProject {
         this.mainContainer.addChild(phoneFormatPreviousButton.container);
 
         // Texture format Format
-        this.textureFormatLabel = new Button(
+        this.textureFormatLabel = new UIElement(
             'Create tiles',
             this.phoneFormatLabel.bounds.left,
             this.phoneFormatLabel.bounds.top + margin + height,
@@ -150,7 +157,7 @@ export class Project implements IProject {
             height,
             undefined
         );
-        const textureFormatNextButton = new Button(
+        const textureFormatNextButton = new UIElement(
             '>',
             this.textureFormatLabel.bounds.right + margin,
             this.textureFormatLabel.bounds.top,
@@ -161,7 +168,7 @@ export class Project implements IProject {
                 await this.createAssets(this.currentTextureFormat);
             }
         );
-        const textureFormatPreviousButton = new Button(
+        const textureFormatPreviousButton = new UIElement(
             '<',
             this.textureFormatLabel.bounds.left - margin - height,
             this.textureFormatLabel.bounds.top,
@@ -177,7 +184,7 @@ export class Project implements IProject {
         this.mainContainer.addChild(textureFormatPreviousButton.container);
 
         // View Type
-        this.viewTypeButton = new Button(
+        this.viewTypeButton = new UIElement(
             'View Type',
             this.textureFormatLabel.bounds.left,
             this.textureFormatLabel.bounds.top + margin + height,
@@ -191,7 +198,7 @@ export class Project implements IProject {
         this.mainContainer.addChild(this.viewTypeButton.container);
 
         // Scaling Tiles
-        this.scaleLabel = new Button(
+        this.scaleLabel = new UIElement(
             'Scale: ',
             this.viewTypeButton.bounds.left,
             this.viewTypeButton.bounds.top + margin + height,
@@ -199,11 +206,11 @@ export class Project implements IProject {
             height,
             undefined
         );
-        const scaleNextButton = new Button('>', this.scaleLabel.bounds.right + margin, this.scaleLabel.bounds.top, height, height, async () => {
+        const scaleNextButton = new UIElement('>', this.scaleLabel.bounds.right + margin, this.scaleLabel.bounds.top, height, height, async () => {
             this.onScaleChange(this.currentScale + this.getScaleIncrements());
             await this.createAssets(this.currentTextureFormat);
         });
-        const scalePreviousButton = new Button(
+        const scalePreviousButton = new UIElement(
             '<',
             this.scaleLabel.bounds.left - margin - height,
             this.scaleLabel.bounds.top,
@@ -219,7 +226,7 @@ export class Project implements IProject {
         this.scaleSettingContainer.addChild(scalePreviousButton.container);
 
         // Tile Id
-        this.tileIdLabel = new Button(
+        this.tileIdLabel = new UIElement(
             'Tile Id: ',
             this.scaleLabel.bounds.left,
             this.scaleLabel.bounds.top + height + margin,
@@ -227,11 +234,11 @@ export class Project implements IProject {
             height,
             undefined
         );
-        const tileIdNextButton = new Button('>', this.tileIdLabel.bounds.right + margin, this.tileIdLabel.bounds.top, height, height, async () => {
+        const tileIdNextButton = new UIElement('>', this.tileIdLabel.bounds.right + margin, this.tileIdLabel.bounds.top, height, height, async () => {
             this.onTileChange(this.currentTileId + 1);
             await this.createAssets(this.currentTextureFormat);
         });
-        const tileIdPreviousButton = new Button(
+        const tileIdPreviousButton = new UIElement(
             '<',
             this.tileIdLabel.bounds.left - margin - height,
             this.tileIdLabel.bounds.top,
@@ -245,6 +252,28 @@ export class Project implements IProject {
         this.tildIdSettingContainer.addChild(this.tileIdLabel.container);
         this.tildIdSettingContainer.addChild(tileIdNextButton.container);
         this.tildIdSettingContainer.addChild(tileIdPreviousButton.container);
+    }
+
+    private createHud(): void {
+        const height = 160;
+        const window = phoneFormatDimensions[this.currentPhoneFormat];
+        const hudBg = new UIElement('', 0, 0, window.w, height, undefined, 0xd2bbae);
+
+        const currentBetText = new UIElement('$ 2.50', hudBg.bounds.left + 10, hudBg.bounds.top + 30, 100, 40, undefined, 0x2b2128, {
+            fontFamily: 'upheavtt',
+            fontSize: 20,
+        });
+
+        const betLabel = new UIElement('BET', currentBetText.bounds.center, currentBetText.bounds.top - 12, 0, 0, undefined, 0x000000, {
+            fontFamily: 'upheavtt',
+            fontSize: 20,
+        });
+        betLabel.changeTextColor(0x000000);
+
+        this.hudContainer.addChild(hudBg.container);
+        this.hudContainer.addChild(betLabel.container);
+        this.hudContainer.addChild(currentBetText.container);
+        this.hudContainer.position.set(this.topLeft.x, this.topLeft.y + window.h - height);
     }
 
     private getScaleIncrements(): number {
@@ -333,16 +362,38 @@ export class Project implements IProject {
     }
 
     private async createElevator(): Promise<void> {
-        const texture = await Pixi.Texture.fromURL('./assets/texture/elevator.png');
-        const elevatorScaled = 0.9;
-        texture.baseTexture.scaleMode = Pixi.SCALE_MODES.NEAREST;
-        this.textures.push(texture);
-        this.elevator = new Pixi.Sprite(texture);
+        const elevatorScaled = 0.25;
+
+        const elevatorTexture = await Pixi.Texture.fromURL('./assets/texture/elevator/elevator.png');
+        elevatorTexture.baseTexture.scaleMode = Pixi.SCALE_MODES.NEAREST;
+        this.textures.push(elevatorTexture);
+        this.elevator = new Pixi.Sprite(elevatorTexture);
         this.elevator.scale.set(
             elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s,
             elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s
         );
+
+        const elevatorCageTexture = await Pixi.Texture.fromURL('./assets/texture/elevator/cage.png');
+        elevatorCageTexture.baseTexture.scaleMode = Pixi.SCALE_MODES.NEAREST;
+        this.textures.push(elevatorCageTexture);
+        this.elevatorCage = new Pixi.Sprite(elevatorCageTexture);
+        this.elevatorCage.scale.set(
+            elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s,
+            elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s
+        );
+
+        const elevatorStairsTexture = await Pixi.Texture.fromURL('./assets/texture/elevator/base.png');
+        elevatorStairsTexture.baseTexture.scaleMode = Pixi.SCALE_MODES.NEAREST;
+        this.textures.push(elevatorStairsTexture);
+        this.elevatorStairs = new Pixi.Sprite(elevatorStairsTexture);
+        this.elevatorStairs.scale.set(
+            elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s,
+            elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s
+        );
+
         this.phoneContainer.addChild(this.elevator);
+        this.phoneContainer.addChild(this.elevatorStairs);
+        this.phoneContainer.addChild(this.elevatorCage);
     }
 
     private updateTransforms(): void {
@@ -358,7 +409,7 @@ export class Project implements IProject {
         }
 
         // Characters
-        const charBeginPos = { x: 5, y: 4 };
+        const charBeginPos = { x: 6, y: 4 };
         for (let j = 0; j < this.characters.length; j++) {
             this.characters[j].position.set(
                 this.topLeft.x +
@@ -375,8 +426,24 @@ export class Project implements IProject {
         this.elevator!.position.set(
             this.topLeft.x + elevatorBeginPos.x * TILESIZE * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s,
             this.topLeft.y +
-                elevatorBeginPos.y * TILESIZE * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s -
+                (elevatorBeginPos.y * TILESIZE - 6) * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s -
                 this.elevator!.height
+        );
+
+        const elevatorStairsBeginPos = { x: 0, y: 4 };
+        this.elevatorStairs!.position.set(
+            this.topLeft.x + elevatorStairsBeginPos.x * TILESIZE * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s,
+            this.topLeft.y +
+                elevatorStairsBeginPos.y * TILESIZE * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s -
+                this.elevatorStairs!.height
+        );
+
+        const elevatorCageBeginPos = { x: 0, y: 4 };
+        this.elevatorCage!.position.set(
+            this.topLeft.x + elevatorCageBeginPos.x * TILESIZE * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s,
+            this.topLeft.y +
+                (elevatorCageBeginPos.y * TILESIZE - 6) * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s -
+                this.elevatorCage!.height
         );
     }
 

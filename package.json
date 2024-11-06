@@ -14,7 +14,7 @@
         "@types/copy-webpack-plugin": "^8.0.0",
         "@types/ip": "^1.1.0",
         "@types/lodash": "^4.14.202",
-        "@types/node": "^20.7.1",
+        "@types/node": "^22.9.0",
         "@types/terser-webpack-plugin": "^5.0.3",
         "@types/uglify-js": "^3.13.0",
         "@types/uglifyjs-webpack-plugin": "^1.1.1",
