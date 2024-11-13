@@ -1,7 +1,18 @@
 import * as Pixi from 'Pixi.js';
 import _ from 'lodash';
 import { UIElement } from './models/uiElement';
-import { assetTexturePaths, beginTileMapGuide, COLS, dropTileMapGuide, phoneFormatDimensions, ROWS, TILESIZE } from './constants';
+import {
+    assetTexturePaths,
+    beginTileMapGuide,
+    COLS,
+    dropStopTileMapGuide,
+    dropTileMapGuide,
+    getPointOnCurve,
+    multipliers,
+    phoneFormatDimensions,
+    ROWS,
+    TILESIZE,
+} from './constants';
 import { TextureFormatTypes } from './types/textureFormatTypes';
 import { PhoneFormatTypes } from './types/phoneFormatTypes';
 import { IProject } from './types/projectType';
@@ -20,8 +31,11 @@ export class Project implements IProject {
     private phoneBackground?: Pixi.Graphics = undefined;
 
     private textures: Map<TextureTypes, Pixi.Texture<Pixi.Resource>[]> = new Map<TextureTypes, Pixi.Texture<Pixi.Resource>[]>();
-    private tiles: Pixi.Sprite[] = [];
-    private tiles2: Pixi.Sprite[] = [];
+    private tiles: Record<number, Pixi.Sprite[]> = {
+        [1]: [],
+        [0]: [],
+    };
+    private tilesIndex: number = 0;
     private characters: Pixi.Sprite[] = [];
 
     private elevator?: Pixi.Sprite;
@@ -88,28 +102,41 @@ export class Project implements IProject {
     };
 
     private hudSprites: Pixi.Sprite[] = [];
-    private betLabel?: UIElement = undefined;
     private difficultyLabel?: UIElement = undefined;
     private autoLabel?: UIElement = undefined;
-    private getOutLabel?: UIElement = undefined;
     private nextLabel?: UIElement = undefined;
     private currentBetText?: UIElement = undefined;
     private currentWalletText?: UIElement = undefined;
+    private stakeMultiplierText?: UIElement = undefined;
+
     private difficultyMapText: Map<number, UIElement> = new Map<number, UIElement>();
     private difficultyMapHighlights: Map<number, Pixi.Sprite> = new Map<number, Pixi.Sprite>();
     private difficultyMapButtons: Map<number, UIElement> = new Map<number, UIElement>();
+
     private nextLowSprite?: Pixi.Sprite = undefined;
     private nextMidSprite?: Pixi.Sprite = undefined;
     private nextHighSprite?: Pixi.Sprite = undefined;
-    private getOutButtonSprite?: Pixi.Sprite = undefined;
     private nextTimer?: UIElement = undefined;
 
+    private betLabel?: UIElement = undefined;
+    private getOutLabel?: UIElement = undefined;
+    private getOutButtonSprite?: Pixi.Sprite = undefined;
+    private getOutDisabledButtonSprite?: Pixi.Sprite = undefined;
+    private betButton?: UIElement = undefined;
+    private hasBet: boolean = false;
+    private hasGottenOut: boolean = false;
+
     private lastTime: number = 0;
-    private timeLeft: number = 10;
-    private tilePageContainer: Pixi.Container;
-    private tilePage2Container: Pixi.Container;
-    private tilePageIndex: number = 0;
+    private timeLeft: number = 5;
+    private sectionsLeft: number = 0;
+    private timePerSection: number = 1500;
+    private timePerIdle: number = 10;
+    private tilePageContainer: Pixi.Container[] = [];
     private gameState: GameState = GameState.Idle;
+    private amountOfDrops: number = 0;
+    private dropsDone: number = 0;
+    private layer: number = 0;
+    private stakeIndex: number = 0;
 
     public async launch(): Promise<void> {
         Pixi.Assets.addBundle('fonts', [{ alias: 'upheavtt', src: '../assets/fonts/upheavtt.ttf' }]);
@@ -121,13 +148,15 @@ export class Project implements IProject {
         this.phoneContainer = new Pixi.Container();
         this.hudContainer = new Pixi.Container();
         this.scaleSettingContainer = new Pixi.Container();
-        this.tilePageContainer = new Pixi.Container();
-        this.tilePage2Container = new Pixi.Container();
+        this.tilePageContainer.push(...[new Pixi.Container(), new Pixi.Container()]);
+        this.tilePageContainer[1].position.set(0, ROWS * TILESIZE);
+
         this.lastTime = 0;
+        this.timeLeft = this.timePerIdle;
 
         this.mainContainer.addChild(this.scaleSettingContainer);
-        this.phoneContainer.addChild(this.tilePageContainer);
-        this.phoneContainer.addChild(this.tilePage2Container);
+        this.phoneContainer.addChild(this.tilePageContainer[0]);
+        this.phoneContainer.addChild(this.tilePageContainer[1]);
         this.mainContainer.addChild(this.phoneContainer);
         this.mainContainer.addChild(this.hudContainer);
         this.canvasApp.stage.addChild(this.mainContainer);
@@ -178,6 +207,7 @@ export class Project implements IProject {
             const hudNextLowTexture = await Pixi.Texture.fromURL('./assets/texture/hud/next_low.png');
             const getOutBtnTexture = await Pixi.Texture.fromURL('./assets/texture/hud/get_out.png');
             const difficultyHighlightSprite = await Pixi.Texture.fromURL('./assets/texture/hud/difficulty_select.png');
+            const getOutDisabledBtnTexture = await Pixi.Texture.fromURL('./assets/texture/hud/get_out_disable.png');
             this.textures.set(TextureTypes.Hud, [
                 hudPanelTexture,
                 hudWalletTexture,
@@ -186,6 +216,7 @@ export class Project implements IProject {
                 hudNextLowTexture,
                 getOutBtnTexture,
                 difficultyHighlightSprite,
+                getOutDisabledBtnTexture,
             ]);
         }
     }
@@ -214,10 +245,6 @@ export class Project implements IProject {
         const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
 
-        if (Math.abs(this.tilePageContainer.position.y) >= ROWS * TILESIZE) {
-            // console.error('move it to bottom');
-        }
-
         this.updateBasedOnGameState(deltaTime);
         requestAnimationFrame(this.update);
     }
@@ -226,17 +253,24 @@ export class Project implements IProject {
         switch (this.gameState) {
             case GameState.Idle:
                 this.timeLeft -= deltaTime;
+                this.onUpdateTimer(this.timeLeft);
                 if (this.timeLeft <= 0) {
+                    this.timeLeft = 0;
                     void this.changeGameState(GameState.DropElevator);
                 }
-                this.onUpdateTimer(this.timeLeft);
                 break;
-            case GameState.DropElevator:
+            case GameState.IdleDrop:
+                this.timeLeft -= deltaTime;
+                this.onUpdateTimer(this.timeLeft);
+                if (this.timeLeft <= 0) {
+                    this.timeLeft = 0;
+                    void this.changeGameState(GameState.MoveTiles);
+                }
                 break;
             case GameState.MoveTiles:
                 this.timeLeft -= deltaTime;
                 if (this.timeLeft <= 0) {
-                    void this.changeGameState(GameState.StopDrop);
+                    this.timeLeft = 0;
                 }
                 break;
             default:
@@ -253,17 +287,48 @@ export class Project implements IProject {
             case GameState.Idle:
                 break;
             case GameState.DropElevator:
+                if (!this.hasBet) {
+                    this.hasBet = true;
+                    this.hasGottenOut = true;
+                    this.onBetGetOutPress();
+                }
+                this.onUpdateStakeMultiplier();
+                this.enableTimer(false);
+                const maxDrops = 3;
+                const minDrops = 1;
+                this.amountOfDrops = Math.floor(Math.random() * (maxDrops - minDrops + 1)) + minDrops; // Set timer to drop time
+                console.error(`Amount of stops: ${this.amountOfDrops}`);
                 this.dropElevator();
                 break;
+            case GameState.IdleDrop:
+                break;
             case GameState.MoveTiles:
-                const min = 3;
-                const max = 8;
-                this.timeLeft = Math.floor(Math.random() * (max - min + 1)) + min; // Set timer to drop time
-                await this.prepareNextSetTiles();
-                this.moveTiles();
+                this.enableTimer(false);
+                this.onUpdateStakeMultiplier();
+                const minTime = 3;
+                const maxTime = 8;
+                this.dropsDone++;
+                this.timeLeft = Math.floor(Math.random() * (maxTime - minTime + 1)) + minTime; // Set timer to drop time
+                this.sectionsLeft = Math.ceil((this.timeLeft * 1000) / this.timePerSection);
+                console.error(`Drop duration: ~${this.timeLeft} over ~${this.sectionsLeft}`);
+                this.elevator!.parent?.removeChild(this.elevator!);
+                this.phoneContainer.addChild(this.elevator!);
+                await this.moveTiles();
                 break;
             case GameState.StopDrop:
-                console.error('reached end');
+                this.timeLeft = this.timePerIdle;
+                if (this.dropsDone % 3 === 0) {
+                    this.dropsDone = 0;
+                    this.layer++;
+                }
+                this.stakeIndex++;
+                this.amountOfDrops--;
+                if (this.amountOfDrops >= 0) {
+                    this.enableTimer(true);
+                    void this.changeGameState(GameState.IdleDrop);
+                } else {
+                    this.crashElevator();
+                }
                 break;
             default:
                 break;
@@ -405,6 +470,12 @@ export class Project implements IProject {
         this.getOutButtonSprite.visible = false;
         this.hudContainer.addChild(this.getOutButtonSprite);
 
+        this.getOutDisabledButtonSprite = new Pixi.Sprite(this.textures.get(TextureTypes.Hud)![7]);
+        this.hudSprites.push(this.getOutDisabledButtonSprite);
+        this.getOutDisabledButtonSprite.position.set(665 * hudScaling, 1525 * hudScaling);
+        this.getOutDisabledButtonSprite.visible = false;
+        this.hudContainer.addChild(this.getOutDisabledButtonSprite);
+
         this.hudContainer.position.set(this.topLeft.x, this.topLeft.y);
 
         this.betLabel = new UIElement('BET', 0, 0, 0, 0, undefined, 0x000000, {
@@ -459,6 +530,22 @@ export class Project implements IProject {
             this.difficultyMapButtons.set(i, button);
             this.hudContainer.addChild(button.container);
         }
+
+        this.betButton = new UIElement(
+            '',
+            0,
+            0,
+            this.getOutButtonSprite.width * hudScaling,
+            this.getOutButtonSprite.height * hudScaling,
+            () => {
+                this.onBetGetOutPress();
+            },
+            0xff0000,
+            {},
+            true
+        );
+        this.hudContainer.addChild(this.betButton.container);
+
         this.currentBetText = this.betLabel.createDuplicate('$ 2.50');
         this.hudContainer.addChild(this.currentBetText.container);
 
@@ -472,6 +559,10 @@ export class Project implements IProject {
             fontSize: 24,
         });
         this.hudContainer.addChild(this.nextTimer.container);
+
+        this.stakeMultiplierText = this.nextLabel.createDuplicate('-');
+        this.stakeMultiplierText.changeTextColor(0x25fd88);
+        this.hudContainer.addChild(this.stakeMultiplierText.container);
 
         this.updateHudTransforms();
     }
@@ -490,26 +581,25 @@ export class Project implements IProject {
     }
 
     private async createAssets(): Promise<void> {
-        this.disposeTilePage(this.tilePageIndex);
-        await this.createTiles(beginTileMapGuide);
+        this.disposeTilePage();
+        this.createTiles(beginTileMapGuide);
         await this.createElevator();
         await this.createCharacters();
         this.updateTransforms();
     }
 
-    private async createTiles(guide: number[][], container?: Pixi.Container): Promise<void> {
+    private createTiles(guide: number[][]): void {
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
-                const texture = this.textures.get(TextureTypes.Tiles)![guide[r][c]];
+                let tileId = guide[r][c];
+                if (tileId === 3) {
+                    tileId += this.layer;
+                }
+                const texture = this.textures.get(TextureTypes.Tiles)![tileId];
                 const emptyTexture = this.textures.get(TextureTypes.Tiles)![this.textures.get(TextureTypes.Tiles)!.length - 1];
                 let sprite = new Pixi.Sprite(texture ?? emptyTexture);
-                if (container) {
-                    this.tiles2.push(sprite);
-                    container.addChild(sprite);
-                } else {
-                    this.tiles.push(sprite);
-                    this.tilePageContainer.addChild(sprite);
-                }
+                this.tiles[this.tilesIndex].push(sprite);
+                this.tilePageContainer[this.tilesIndex].addChild(sprite);
             }
         }
     }
@@ -554,22 +644,22 @@ export class Project implements IProject {
             elevatorScaled * this.mapSavedSettings[this.currentPhoneFormat][TextureFormatTypes.Default32].s
         );
 
-        this.tilePageContainer.addChild(this.elevatorBg);
-        this.tilePageContainer.addChild(this.elevator);
-        this.tilePageContainer.addChild(this.elevatorStairs);
-        this.tilePageContainer.addChild(this.elevatorCage);
+        this.tilePageContainer[0].addChild(this.elevatorBg);
+        this.tilePageContainer[0].addChild(this.elevator);
+        this.tilePageContainer[0].addChild(this.elevatorStairs);
+        this.tilePageContainer[0].addChild(this.elevatorCage);
     }
 
     private updateTransforms(): void {
         // Tiles
-        for (let i = 0; i < this.tiles.length; i++) {
+        for (let i = 0; i < this.tiles[0].length; i++) {
             const row = Math.floor(i / COLS);
             const column = i % COLS;
-            this.tiles[i].position.set(
-                this.topLeft.x + column * this.tiles[i]!.height * this.currentScale,
-                this.topLeft.y + row * this.tiles[i]!.width * this.currentScale
+            this.tiles[0][i].position.set(
+                this.topLeft.x + column * this.tiles[0][i]!.height * this.currentScale,
+                this.topLeft.y + row * this.tiles[0][i]!.width * this.currentScale
             );
-            this.tiles[i].scale.set(this.currentScale, this.currentScale);
+            this.tiles[0][i].scale.set(this.currentScale, this.currentScale);
         }
 
         // Characters
@@ -652,6 +742,8 @@ export class Project implements IProject {
         this.getOutLabel?.container.position.set(300 * dimensionsScalingW, dimension.h - 250 * hudScaling);
         this.nextLabel?.container.position.set(285 * dimensionsScalingW, dimension.h - 610 * hudScaling);
         this.nextTimer?.container.position.set(285 * dimensionsScalingW, dimension.h - 530 * hudScaling);
+        this.stakeMultiplierText?.container.position.set(80 * dimensionsScalingW, dimension.h - 590 * hudScaling);
+        this.betButton?.container.position.set(240 * dimensionsScalingW, dimension.h - 393 * hudScaling);
 
         this.currentBetText?.container.position.set(55 * dimensionsScalingW, dimension.h - 220 * hudScaling);
         this.currentWalletText?.container.position.set(255 * dimensionsScalingW, 100 * hudScaling);
@@ -765,18 +857,67 @@ export class Project implements IProject {
         this.mapSavedSettings[this.currentPhoneFormat][this.currentTextureFormat].s = this.currentScale;
     }
 
+    private onBetGetOutPress(): void {
+        if (this.gameState === GameState.Idle) {
+            if (!this.hasBet) {
+                this.hasBet = true;
+            }
+        }
+
+        if (this.gameState === GameState.IdleDrop && this.hasBet) {
+            if (!this.hasGottenOut) {
+                this.hasGottenOut = true;
+            }
+        }
+
+        this.getOutButtonSprite!.visible = this.hasBet && !this.hasGottenOut;
+        this.getOutDisabledButtonSprite!.visible = this.hasBet && this.hasGottenOut;
+        this.getOutLabel!.changeText(this.hasBet ? (this.hasGottenOut ? 'WAIT' : 'GET OUT') : 'BET');
+    }
+
     private onDifficultyChange(difficulty: number): void {
-        this.difficultyMapHighlights.forEach((sprite: Pixi.Sprite, index: number) => {
-            sprite.visible = index === difficulty;
-        });
-        this.difficultyMapText.forEach((text: UIElement, index: number) => {
-            text.changeTextColor(index === difficulty ? 0xffffff : 0x000000);
-        });
+        if (this.gameState === GameState.Idle) {
+            this.difficultyMapHighlights.forEach((sprite: Pixi.Sprite, index: number) => {
+                sprite.visible = index === difficulty;
+                if (index === difficulty) {
+                    this.currentDifficulty = index;
+                }
+            });
+            this.onUpdateStakeMultiplier();
+            this.difficultyMapText.forEach((text: UIElement, index: number) => {
+                text.changeTextColor(index === difficulty ? 0xffffff : 0x000000);
+            });
+        }
+    }
+
+    private onUpdateStakeMultiplier(): void {
+        if (this.stakeMultiplierText) {
+            const multiInfo = multipliers[this.currentDifficulty];
+            const stake = getPointOnCurve(this.stakeIndex, multiInfo.b, multiInfo.e);
+            this.stakeMultiplierText.changeText(`x${stake.toFixed(2)}`);
+        }
     }
 
     private onUpdateTimer(time: number): void {
-        const seconds = Math.floor(time);
+        const seconds = Math.ceil(time);
         this.nextTimer?.changeText(`00 : ${seconds < 10 ? '0' : ''}${seconds}`);
+        if (this.nextLowSprite) {
+            this.nextLowSprite.visible = seconds <= 3;
+        }
+        if (this.nextMidSprite) {
+            this.nextMidSprite.visible = seconds > 3 && seconds <= 6;
+        }
+        if (this.nextHighSprite) {
+            this.nextHighSprite.visible = seconds > 6;
+        }
+    }
+
+    private enableTimer(active: boolean = true): void {
+        this.nextTimer!.container.visible = active;
+        this.nextLabel!.container.visible = active;
+        this.nextHighSprite!.visible = active;
+        this.nextMidSprite!.visible = active;
+        this.nextLowSprite!.visible = active;
     }
 
     private async dropElevator(): Promise<void> {
@@ -790,59 +931,63 @@ export class Project implements IProject {
             });
     }
 
-    private moveTiles(): void {
-        const fromContainer = this.tilePageIndex === 0 ? this.tilePageContainer : this.tilePage2Container;
-        const toContainer = this.tilePageIndex === 0 ? this.tilePage2Container : this.tilePageContainer;
-
-        this.tilePageContainer.removeChild(this.elevator!);
-        this.phoneContainer.addChild(this.elevator!);
-        const goalPosition = {
-            x: this.tilePageContainer.position.x,
-            y: -ROWS * TILESIZE,
-        };
-        new TWEEN.Tween(fromContainer.position).to(goalPosition, 5000).easing(TWEEN.Easing.Linear.InOut).start();
-        new TWEEN.Tween(toContainer.position)
-            .to({ x: 0, y: 0 }, 5000)
+    private async moveTiles(): Promise<void> {
+        if (this.sectionsLeft <= 0) {
+            void this.changeGameState(GameState.StopDrop);
+            return;
+        }
+        this.sectionsLeft--;
+        await this.prepareNextSetTiles();
+        new TWEEN.Tween(this.tilePageContainer[this.tilesIndex === 0 ? 1 : 0].position)
+            .to({ x: 0, y: -ROWS * TILESIZE }, this.timePerSection)
+            .easing(TWEEN.Easing.Linear.InOut)
+            .start();
+        new TWEEN.Tween(this.tilePageContainer[this.tilesIndex].position)
+            .to({ x: 0, y: 0 }, this.timePerSection)
             .easing(TWEEN.Easing.Linear.InOut)
             .start()
-            .onComplete(() => {
-                this.moveTiles();
+            .onComplete(async () => {
+                this.tilePageContainer[this.tilesIndex === 0 ? 1 : 0].position.set(0, ROWS * TILESIZE);
+                if (this.gameState === GameState.MoveTiles) {
+                    void this.moveTiles();
+                }
             });
     }
 
     private async prepareNextSetTiles(): Promise<void> {
-        this.tilePageIndex++;
-        this.tilePageIndex %= 2;
-
-        const container = this.tilePageIndex === 0 ? this.tilePageContainer : this.tilePage2Container;
-        const tiles = this.tilePageIndex === 0 ? this.tiles : this.tiles2;
-        await this.createTiles(dropTileMapGuide, container);
-        for (let i = 0; i < tiles.length; i++) {
+        this.tilesIndex++;
+        this.tilesIndex %= 2;
+        this.disposeTilePage();
+        this.createTiles(this.sectionsLeft === 0 ? dropStopTileMapGuide : dropTileMapGuide);
+        for (let i = 0; i < this.tiles[this.tilesIndex].length; i++) {
             const row = Math.floor(i / COLS);
             const column = i % COLS;
-            tiles[i].position.set(
-                this.topLeft.x + column * tiles[i]!.height * this.currentScale,
-                this.topLeft.y + row * tiles[i]!.width * this.currentScale
+            this.tiles[this.tilesIndex][i].position.set(
+                this.topLeft.x + column * this.tiles[this.tilesIndex][i]!.height * this.currentScale,
+                this.topLeft.y + row * this.tiles[this.tilesIndex][i]!.width * this.currentScale
             );
-            tiles[i].scale.set(this.currentScale, this.currentScale);
+            this.tiles[this.tilesIndex][i].scale.set(this.currentScale, this.currentScale);
         }
-        container.position.set(0, ROWS * TILESIZE);
     }
 
-    public disposeTilePage(page: number): void {
-        if (page === 0) {
-            this.tiles.forEach((sprite: Pixi.Sprite) => {
-                sprite.parent?.removeFromParent();
-                sprite.destroy();
+    private async crashElevator(): Promise<void> {
+        const elevatorGoalPos = this.getElevatorPosition(32);
+        new TWEEN.Tween(this.elevator!.position)
+            .to(elevatorGoalPos, 350)
+            .easing(TWEEN.Easing.Linear.InOut)
+            .start()
+            .onComplete(async () => {
+                // TODO: Reset
+                // await this.changeGameState(GameState.MoveTiles);
             });
-            this.tiles.splice(0);
-        } else {
-            this.tiles2.forEach((sprite: Pixi.Sprite) => {
-                sprite.parent?.removeFromParent();
-                sprite.destroy();
-            });
-            this.tiles2.splice(0);
-        }
+    }
+
+    public disposeTilePage(): void {
+        this.tilePageContainer[this.tilesIndex].children.forEach((obj: Pixi.DisplayObject) => {
+            obj.destroy();
+        });
+        this.tiles[this.tilesIndex] = [];
+        this.tilePageContainer[this.tilesIndex].removeChildren();
     }
 
     public disposeTileTextures(): void {
