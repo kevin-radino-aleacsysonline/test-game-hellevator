@@ -9233,6 +9233,7 @@ __metadata:
     ts-loader: ^9.2.6
     ts-node: ^10.9.2
     tslib: ^2.3.0
+    tween.js: ^16.6.0
     typescript: ^5.6.3
     url-loader: ^4.1.1
     webpack: ^5.96.1
@@ -9488,6 +9489,13 @@ __metadata:
   dependencies:
     safe-buffer: ^5.0.1
   checksum: 05f6510358f8afc62a057b8b692f05d70c1782b70db86d6a1e0d5e28a32389e52fa6e7707b6c5ecccacc031462e4bc35af85ecfe4bbc341767917b7cf6965711
+  languageName: node
+  linkType: hard
+
+"tween.js@npm:^16.6.0":
+  version: 16.6.0
+  resolution: "tween.js@npm:16.6.0"
+  checksum: 76de3c5ecc8dc98bcf2dc1971936009a37d96592310ddf6c66505dada747a820e95f1b3a3be54ff55116b401f3bd5bebd2493343085bc62c252004933e42470a
   languageName: node
   linkType: hard
 

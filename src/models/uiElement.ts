@@ -5,6 +5,7 @@ export class UIElement {
     public container: Pixi.Container;
     public text: Pixi.Text;
     public bounds: ButtonBounds;
+    private textOptions: Partial<Pixi.ITextStyle>;
 
     constructor(
         text: string,
@@ -14,14 +15,16 @@ export class UIElement {
         h: number,
         callback?: () => void,
         color: number = 0x000000,
-        textOpts?: Partial<Pixi.ITextStyle> | Pixi.TextStyle
+        textOpts?: Partial<Pixi.ITextStyle>,
+        invisButton = false
     ) {
         const g1 = new Pixi.Graphics();
-        g1.beginFill(color);
+        g1.beginFill(color, invisButton ? 0 : 1);
         g1.drawRect(0, 0, w, h);
         g1.endFill();
 
-        this.text = new Pixi.Text(text, { ...{ fontFamily: 'Arial', fontSize: 16, fill: 0xffffff, align: 'center' }, ...textOpts });
+        this.textOptions = { ...{ fontFamily: 'Arial', fontSize: 16, fill: 0xffffff, align: 'center' }, ...textOpts };
+        this.text = new Pixi.Text(text, this.textOptions);
 
         this.text.anchor.set(0.5, 0.5);
         this.text.position.set(w * 0.5, h * 0.5);
@@ -51,6 +54,13 @@ export class UIElement {
             height: h,
             center: (x + x + w) * 0.5,
         };
+    }
+
+    public createDuplicate(text: string, callback?: () => void, bgColor?: number, textOpts?: Partial<Pixi.ITextStyle>): UIElement {
+        return new UIElement(text, this.bounds.left, this.bounds.top, this.bounds.width, this.bounds.height, callback, bgColor, {
+            ...this.textOptions,
+            ...textOpts,
+        });
     }
 
     public changeText(text: string): void {
